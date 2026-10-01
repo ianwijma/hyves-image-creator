@@ -106,29 +106,46 @@ function pickSequinColor(rng: () => number) {
 function buildLayout(w: number, h: number, seed: number): Layout {
   const rng = mulberry32(seed);
   const radius = Math.min(w, h) * 0.045;
-  // Band height scales with the image so the sequin border stays proportional
-  // (and glittery) at any size, from 320 px up to full-size renders.
+  // Ball size scales with the image so a single solid line of sequins stays
+  // proportional (and glittery) at any size, from 320 px up to full-size renders.
   const bandH = clamp(Math.min(h * 0.11, Math.min(w, h) * 0.12), 22, 160);
   const r = bandH * 0.4;
   const spacing = r * 1.75;
 
   const sequins: Sequin[] = [];
   let seedIdx = 1;
-  for (const top of [true, false]) {
-    for (const row of [0, 1]) {
-      const yBase = top ? r * 1.05 : h - r * 1.05;
-      const y = row === 0 ? yBase : top ? bandH - r * 1.05 : h - bandH + r * 1.05;
-      const offset = row === 1 ? spacing / 2 : 0;
-      for (let x = -r * 0.4 + offset; x < w + r; x += spacing) {
-        const color = pickSequinColor(rng);
-        sequins.push({
-          x,
-          y,
-          r: r * (0.92 + rng() * 0.16),
-          ...color,
-          seed: seedIdx++ * 7.13 + 3.7,
-        });
-      }
+  const addSequin = (x: number, y: number) => {
+    sequins.push({
+      x,
+      y,
+      r: r * (0.92 + rng() * 0.16),
+      ...pickSequinColor(rng),
+      seed: seedIdx++ * 7.13 + 3.7,
+    });
+  };
+
+  // One even line of sequins walked around the perimeter — the four edges are
+  // split into equal steps so corners get exactly one ball and none overlap.
+  const inset = r * 1.15;
+  const x0 = inset;
+  const y0 = inset;
+  const x1 = w - inset;
+  const y1 = h - inset;
+  const edges: Array<[number, number, number, number]> = [
+    [x0, y0, x1, y0], // top
+    [x1, y0, x1, y1], // right
+    [x1, y1, x0, y1], // bottom
+    [x0, y1, x0, y0], // left
+  ];
+  for (const [ax, ay, bx, by] of edges) {
+    const len = Math.hypot(bx - ax, by - ay);
+    const n = Math.max(1, Math.round(len / spacing));
+    const step = len / n;
+    for (let i = 0; i < n; i++) {
+      addSequin(
+        ax + ((bx - ax) / len) * step * i,
+        ay + ((by - ay) / len) * step * i
+      );
     }
   }
 
